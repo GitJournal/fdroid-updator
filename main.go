@@ -3,8 +3,11 @@ package main
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -20,8 +23,8 @@ import (
 const owner = "GitJournal"
 const repoName = "GitJournal"
 const artifactName = "APK"
-const artifactsZipDir = "/home/vhanda/src/env/data/github-artifacts"
-const artifactsDir = "/home/vhanda/src/env/data/fdroid"
+const artifactsDir = "./fdroid"
+const processedArtifactsFile = "processed_artifacts.json"
 
 func main() {
 	ctx := context.Background()
@@ -36,14 +39,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = os.MkdirAll(artifactsZipDir, 0755)
+	artifactsZipDir, err := ioutil.TempDir(os.TempDir(), "artifacts")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("ioutil.TempDir: %w", err)
 	}
+	defer os.RemoveAll(artifactsZipDir)
 
 	err = os.MkdirAll(artifactsDir, 0755)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	processedArtifacts, err := readProcessedArtifacts()
+	if err != nil {
+		log.Fatal("readProcesssedArtifacts: %w", err)
 	}
 
 	for _, artifact := range artifacts.Artifacts {
@@ -55,7 +64,19 @@ func main() {
 			continue
 		}
 
-		fileName := artifactName + strconv.Itoa(int(artifact.GetID())) + ".zip"
+		id := strconv.Itoa(int(artifact.GetID()))
+		contains := false
+		for _, aID := range processedArtifacts {
+			if id == aID {
+				contains = true
+				break
+			}
+		}
+		if contains {
+			continue
+		}
+
+		fileName := artifactName + id + ".zip"
 		fileName = path.Join(artifactsZipDir, fileName)
 
 		_, err := os.Stat(fileName)
@@ -73,6 +94,17 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	}
+
+	processedArtifacts = []string{}
+	for _, artifact := range artifacts.Artifacts {
+		id := strconv.Itoa(int(artifact.GetID()))
+		processedArtifacts = append(processedArtifacts, id)
+	}
+
+	err = writeProcessedArtifacts(processedArtifacts)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -159,6 +191,38 @@ func Unzip(src, dest string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func readProcessedArtifacts() ([]string, error) {
+	var data []string
+
+	file, err := ioutil.ReadFile(processedArtifactsFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return data, nil
+		}
+		return []string{}, err
+	}
+
+	err = json.Unmarshal(file, &data)
+	if err != nil {
+		return []string{}, err
+	}
+	return data, nil
+}
+
+func writeProcessedArtifacts(list []string) error {
+	bytes, err := json.Marshal(list)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(processedArtifactsFile, bytes, 0644)
+	if err != nil {
+		return err
 	}
 
 	return nil
