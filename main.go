@@ -32,7 +32,11 @@ func main() {
 	flag.Parse()
 
 	if token == nil || len(*token) == 0 {
-		log.Fatal(("Missing GitHub Access Token"))
+		val := os.Getenv("GITHUB_TOKEN")
+		if len(val) == 0 {
+			log.Fatal(("Missing GitHub Access Token"))
+		}
+		token = &val
 	}
 
 	ctx := context.Background()
