@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,9 +28,16 @@ const artifactsDir = "./repo"
 const processedArtifactsFile = "processed_artifacts.json"
 
 func main() {
+	token := flag.String("token", "", "GitHub Access Token")
+	flag.Parse()
+
+	if token == nil || len(*token) == 0 {
+		log.Fatal(("Missing GitHub Access Token"))
+	}
+
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: ""},
+		&oauth2.Token{AccessToken: *token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
