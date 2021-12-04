@@ -23,7 +23,7 @@ import (
 const owner = "GitJournal"
 const repoName = "GitJournal"
 const artifactName = "APK"
-const artifactsDir = "./fdroid"
+const artifactsDir = "./repo"
 const processedArtifactsFile = "processed_artifacts.json"
 
 func main() {
